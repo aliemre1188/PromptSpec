@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PromptSpec — Meta-Master-Prompt Builder</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#60a5fa; --danger:#fb7185; }
+    * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    body { margin:0; background:var(--bg); color:var(--text); }
+    header { padding:24px 16px; border-bottom:1px solid #1f2937; text-align:center; }
+    header h1 { margin:0; font-size:20px; }
+    header p { margin:6px auto 0; color:var(--muted); font-size:14px; max-width: 900px; }
+    main { display:block; padding:16px; max-width:900px; margin:0 auto; }
+    .card { background:var(--card); border:1px solid #1f2937; border-radius:14px; padding:16px; }
+    .card h2 { margin:0 0 10px; font-size:16px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input[type="text"], textarea, select {
+      width:100%; padding:10px 10px; border-radius:10px; border:1px solid #243244;
+      background:#0b1220; color:var(--text); outline:none;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+    .checks { display:grid; gap:8px; }
+    .check { display:flex; gap:10px; align-items:flex-start; background:#0b1220; border:1px solid #243244; padding:10px; border-radius:10px; }
+    .check input { margin-top:3px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
+    .btns { display:flex; flex-wrap:wrap; gap:10px; }
+    button {
+      border:1px solid #2b3b52; background:#0b1220; color:var(--text);
+      padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:600;
+    }
+    button.primary { border-color: transparent; background: var(--accent); color:#0b0f14; }
+    button.danger { border-color: transparent; background: var(--danger); color:#0b0f14; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    pre {
+      margin:0; white-space:pre-wrap; word-break:break-word;
+      background:#050914; border:1px solid #1f2937; border-radius:12px; padding:12px;
+      min-height: 220px;
+    }
+    .error { color: var(--danger); font-size:12px; margin-top:8px; }
+    .ok { color: #34d399; font-size:12px; margin-top:8px; }
+    footer { padding:16px; max-width:1200px; margin:0 auto; color:var(--muted); font-size:12px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #2b3b52; background:#0b1220; font-size:12px; color:var(--muted); }
+  </style>
+</head>
+<body>
+<header>
+  <h1>PromptSpec — Meta-Master-Prompt Builder</h1>
+  <h2>Turn ideas into production-grade prompts.</h2>
+  <p>
+    You have an idea, but don't know where to begin? Fill the form → you get a <span class="pill">meta-master-prompt</span> to paste into any LLM.
+    That LLM will output a <span class="pill">master prompt</span> tailored to your target environment (Chat, Cursor, Windsurf, Lovable, etc.).
+    No login, no backend, no API calls.
+  </p>
+</header>
+
+<main>
+  <!-- LEFT: FORM -->
+  <section class="card">
+    <div class="toolbar">
+      <h2>Specification Form</h2>
+      <div class="btns">
+        <button id="btnExport">Export JSON</button>
+        <button id="btnImport">Import JSON</button>
+        <button id="btnReset" class="danger">Reset</button>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #1f2937;margin:14px 0;" />
+
+    <h2>Intent & Problem</h2>
+    <label for="objective">Primary objective (mandatory)</label>
+    <textarea id="objective" placeholder="What do you want the LLM to ultimately help you produce or achieve?"></textarea>
+
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label for="outputType">Output type (mandatory)</label>
+        <select id="outputType">
+          <option value="">— Select —</option>
+          <option>Code</option>
+          <option>System / agent prompt</option>
+          <option>Technical plan / roadmap</option>
+          <option>Business / strategy output</option>
+          <option>Mixed (code + explanation)</option>
+          <option value="Other">Other</option>
+        </select>
+        <div id="outputTypeOtherWrap" style="display:none; margin-top:10px;">
+          <label for="outputTypeOther">Specify output type (required when Other)</label>
+          <input id="outputTypeOther" type="text" placeholder="e.g., PRD document, prompt library, testing plan" />
+        </div>
+      </div>
+      <div>
+        <label for="useMode">Intended use (mandatory)</label>
+        <select id="useMode">
+          <option value="">— Select —</option>
+          <option>One-off execution</option>
+          <option>Iterative development</option>
+          <option>Reusable template</option>
+          <option>Production system prompt</option>
+          <option>Learning / exploration</option>
+        </select>
+      </div>
+    </div>
+
+    <h2 style="margin-top:18px;">Target Environment</h2>
+    <label for="targetWhere">Where will the master prompt be pasted? (mandatory)</label>
+    <select id="targetWhere">
+      <option value="">— Select —</option>
+      <option>Chat-based LLM (ChatGPT, Claude, Gemini, etc.)</option>
+      <option>AI coding environment (Cursor, Windsurf, Continue, etc.)</option>
+      <option>No-code / vibe-coding tool (Lovable, Replit, etc.)</option>
+      <option>Automation tool (n8n, Zapier, Make, etc.)</option>
+      <option value="Other">Other</option>
+    </select>
+    <div id="targetWhereOtherWrap" style="display:none; margin-top:10px;">
+      <label for="targetWhereOther">Specify target environment (required when Other)</label>
+      <input id="targetWhereOther" type="text" placeholder="e.g., GitHub Copilot Chat, JetBrains AI, custom in-app agent" />
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label for="specificTool">Specific tool / IDE <span id="specificToolDefaultHint" class="pill" style="margin-left:6px;">Default: ChatGPT</span></label>
+        <input id="specificTool" type="text" placeholder="Auto-set based on target environment (you can change it)" />
+      </div>
+      <div>
+        <label for="platform">Platform / OS (nice-to-have)</label>
+        <input id="platform" type="text" placeholder="e.g., macOS, Windows, Linux, Web only" />
+      </div>
+    </div>
+
+    <h2 style="margin-top:18px;">User Capability</h2>
+    <div class="row">
+      <div>
+        <label for="skillLevel">Skill level (mandatory)</label>
+        <select id="skillLevel">
+          <option value="">— Select —</option>
+          <option>Non-technical</option>
+          <option>Beginner</option>
+          <option>Intermediate</option>
+          <option>Advanced</option>
+          <option>Expert</option>
+        </select>
+      </div>
+      <div>
+        <label for="assumeKnown">Assume I already know (mandatory)</label>
+        <input id="assumeKnown" type="text" placeholder='e.g., "basic Python", "nothing — explain everything"' />
+      </div>
+    </div>
+
+    <h2 style="margin-top:18px;">Constraints</h2>
+
+    <label>Hard constraints (mandatory: pick any that apply)</label>
+    <div class="checks" id="constraintChecks">
+      <div class="check"><input type="checkbox" value="Budget limits" id="c_budget"><label for="c_budget" style="margin:0;color:var(--text);font-size:13px;">Budget limits</label></div>
+      <div class="check"><input type="checkbox" value="Time limits" id="c_time"><label for="c_time" style="margin:0;color:var(--text);font-size:13px;">Time limits</label></div>
+      <div class="check"><input type="checkbox" value="Legal / compliance (GDPR, AI Act, HIPAA, etc.)" id="c_legal"><label for="c_legal" style="margin:0;color:var(--text);font-size:13px;">Legal / compliance (GDPR, AI Act, etc.)</label></div>
+      <div class="check"><input type="checkbox" value="No external APIs" id="c_noapi"><label for="c_noapi" style="margin:0;color:var(--text);font-size:13px;">No external APIs</label></div>
+      <div class="check"><input type="checkbox" value="No paid tools" id="c_nopaid"><label for="c_nopaid" style="margin:0;color:var(--text);font-size:13px;">No paid tools</label></div>
+      <div class="check"><input type="checkbox" value="Other (see text field)" id="c_other"><label for="c_other" style="margin:0;color:var(--text);font-size:13px;">Other (see text field)</label></div>
+    </div>
+    <div id="constraintOtherWrap" style="display:none; margin-top:10px;">
+      <label for="constraintOther">Specify other hard constraints (required when Other)</label>
+      <input id="constraintOther" type="text" placeholder="e.g., must run offline; must support German; no cookies" />
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label for="constraintDetails">Constraint details (recommended)</label>
+        <textarea id="constraintDetails" placeholder="e.g., budget €0; must be client-side only; must not store user data; deadline 2 weeks"></textarea>
+      </div>
+      <div>
+        <label for="nonNegotiables">Non-negotiables (mandatory)</label>
+        <textarea id="nonNegotiables" placeholder="What must absolutely not be violated?"></textarea>
+      </div>
+    </div>
+
+    <h2 style="margin-top:18px;">Output Behavior</h2>
+
+    <div class="row">
+      <div>
+        <label for="verbosity">Verbosity (mandatory)</label>
+        <select id="verbosity">
+          <option value="">— Select —</option>
+          <option>Minimal</option>
+          <option>Balanced</option>
+          <option>Very detailed</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="risk">Error tolerance (mandatory)</label>
+        <select id="risk">
+          <option value="">— Select —</option>
+          <option>Conservative (avoid assumptions)</option>
+          <option>Balanced</option>
+          <option>Aggressive (optimize speed)</option>
+        </select>
+      </div>
+    </div>
+
+    <label style="margin-top:12px;">Desired structure (mandatory: pick ≥1)</label>
+    <div class="checks" id="structureChecks">
+      <div class="check"><input type="checkbox" value="Step-by-step instructions" id="s_steps"><label for="s_steps" style="margin:0;color:var(--text);font-size:13px;">Step-by-step instructions</label></div>
+      <div class="check"><input type="checkbox" value="Checklists" id="s_checklists"><label for="s_checklists" style="margin:0;color:var(--text);font-size:13px;">Checklists</label></div>
+      <div class="check"><input type="checkbox" value="Architecture diagrams (textual)" id="s_arch"><label for="s_arch" style="margin:0;color:var(--text);font-size:13px;">Architecture diagrams (textual)</label></div>
+      <div class="check"><input type="checkbox" value="Code blocks only" id="s_codeonly"><label for="s_codeonly" style="margin:0;color:var(--text);font-size:13px;">Code blocks only</label></div>
+      <div class="check"><input type="checkbox" value="Explanation + code" id="s_explcode"><label for="s_explcode" style="margin:0;color:var(--text);font-size:13px;">Explanation + code</label></div>
+    </div>
+
+    <label style="margin-top:12px;">How should the downstream LLM proceed? (mandatory: pick 1)</label>
+    <div class="checks" id="proceedRadios">
+      <div class="check"><input type="radio" name="proceed" value="Ask clarifying questions before acting" id="p_questions"><label for="p_questions" style="margin:0;color:var(--text);font-size:13px;">Ask clarifying questions before acting</label></div>
+      <div class="check"><input type="radio" name="proceed" value="Make reasonable assumptions and proceed" id="p_assume"><label for="p_assume" style="margin:0;color:var(--text);font-size:13px;">Make reasonable assumptions and proceed</label></div>
+      <div class="check"><input type="radio" name="proceed" value="Explicitly list assumptions, then proceed" id="p_listassume"><label for="p_listassume" style="margin:0;color:var(--text);font-size:13px;">Explicitly list assumptions, then proceed</label></div>
+    </div>
+
+    <h2 style="margin-top:18px;">Nice-to-haves (optional)</h2>
+    <label for="examples">Example inputs/outputs or references</label>
+    <textarea id="examples" placeholder="Paste example user stories, desired output examples, links (optional), etc."></textarea>
+
+    <label for="stack" style="margin-top:12px;">Preferred tech stack (if any)</label>
+    <input id="stack" type="text" placeholder="e.g., Next.js, Python, FastAPI, Supabase, Postgres, n8n" />
+
+    <label for="hosting" style="margin-top:12px;">Hosting preference</label>
+    <input id="hosting" type="text" placeholder="e.g., Vercel, Netlify, Cloudflare Pages, local only" />
+
+    <div id="formStatus" class="hint" style="margin-top:12px;"></div>
+    <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <button id="btnCopy" class="primary" disabled>Copy prompt and paste to any LLM</button>
+      <div id="copyStatus" class="hint"></div>
+    </div>
+    <div id="output" style="display:none;"></div>
+  </section>
+
+</main>
+
+<footer>
+  Specs are stored locally in your browser unless you export them.
+</footer>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  const fields = [
+    "objective","outputType","useMode","targetWhere","specificTool","platform",
+    "skillLevel","assumeKnown","constraintDetails","nonNegotiables",
+    "verbosity","risk","examples","stack","hosting",
+    "outputTypeOther","targetWhereOther","constraintOther"
+  ];
+  function setVisible(id, visible) {
+    const el = $(id);
+    if (!el) return;
+    el.style.display = visible ? "block" : "none";
+  }
+
+  function setDefaultHint(text) {
+    const el = $("specificToolDefaultHint");
+    if (el) el.textContent = `Default: ${text}`;
+  }
+
+  function computeDefaultTool(targetWhere) {
+    if (!targetWhere) return "ChatGPT";
+    if (targetWhere === "Chat-based LLM (ChatGPT, Claude, Gemini, etc.)") return "ChatGPT";
+    if (targetWhere === "AI coding environment (Cursor, Windsurf, Continue, etc.)") return "Cursor";
+    if (targetWhere === "No-code / vibe-coding tool (Lovable, Replit, etc.)") return "Lovable";
+    if (targetWhere === "Automation tool (n8n, Zapier, Make, etc.)") return "n8n";
+    if (targetWhere === "Other") return "";
+    return "ChatGPT";
+  }
+
+  function applyDynamicUI(state) {
+    // Show/hide Other fields
+    setVisible("outputTypeOtherWrap", state.outputType === "Other");
+    setVisible("targetWhereOtherWrap", state.targetWhere === "Other");
+
+    const otherConstraintChecked = document.getElementById("c_other")?.checked;
+    setVisible("constraintOtherWrap", !!otherConstraintChecked);
+
+    // Defaults for specific tool
+    const defaultTool = computeDefaultTool(state.targetWhere);
+    setDefaultHint(defaultTool || "(required)");
+
+    // If user hasn't typed a tool and a default exists, auto-fill.
+    // Also if nothing is selected for targetWhere, default should be ChatGPT.
+    const specificToolEl = $("specificTool");
+    if (specificToolEl) {
+      const userTyped = specificToolEl.dataset.userTyped === "1";
+      if (!userTyped) {
+        if (defaultTool) {
+          specificToolEl.value = defaultTool;
+        } else {
+          // targetWhere Other: do not auto-fill
+          specificToolEl.value = "";
+        }
+      }
+    }
+
+    // If hard-constraint Other unchecked, clear its text unless user typed
+    const constraintOtherEl = $("constraintOther");
+    if (constraintOtherEl && !otherConstraintChecked) {
+      constraintOtherEl.value = "";
+    }
+
+    // If outputType not Other, clear outputTypeOther
+    const outputTypeOtherEl = $("outputTypeOther");
+    if (outputTypeOtherEl && state.outputType !== "Other") outputTypeOtherEl.value = "";
+
+    // If targetWhere not Other, clear targetWhereOther
+    const targetWhereOtherEl = $("targetWhereOther");
+    if (targetWhereOtherEl && state.targetWhere !== "Other") targetWhereOtherEl.value = "";
+  }
+
+  function getCheckedValues(containerId) {
+    return Array.from(document.querySelectorAll(`#${containerId} input[type="checkbox"]`))
+      .filter(x => x.checked).map(x => x.value);
+  }
+
+  function getProceedValue() {
+    const v = document.querySelector(`input[name="proceed"]:checked`);
+    return v ? v.value : "";
+  }
+
+  function getHardConstraints() {
+    return getCheckedValues("constraintChecks");
+  }
+
+  function getStructure() {
+    return getCheckedValues("structureChecks");
+  }
+
+  function readState() {
+    const s = {};
+    fields.forEach(f => s[f] = $(f).value.trim());
+    s.hardConstraints = getHardConstraints();
+    s.structure = getStructure();
+    s.proceed = getProceedValue();
+    return s;
+  }
+
+  function validate(state) {
+    const missing = [];
+    if (!state.objective) missing.push("Primary objective");
+    if (!state.outputType) missing.push("Output type");
+    if (!state.useMode) missing.push("Intended use");
+    if (!state.targetWhere) missing.push("Target environment");
+    if (!state.skillLevel) missing.push("Skill level");
+    if (!state.assumeKnown) missing.push("Assumptions about user knowledge");
+    if (!state.nonNegotiables) missing.push("Non-negotiables");
+    if (!state.verbosity) missing.push("Verbosity");
+    if (!state.risk) missing.push("Error tolerance");
+    if (!state.proceed) missing.push("How to proceed");
+    if (state.structure.length === 0) missing.push("Desired structure (pick ≥1)");
+    // Hard constraints can be empty if truly none, but we nudge user.
+    if (state.outputType === "Other" && !state.outputTypeOther) missing.push("Specify output type (Other)");
+    if (state.targetWhere === "Other" && !state.targetWhereOther) missing.push("Specify target environment (Other)");
+
+    const otherConstraintChecked = document.getElementById("c_other")?.checked;
+    if (otherConstraintChecked && !state.constraintOther) missing.push("Specify other hard constraints (Other)");
+
+    // Specific tool is required if targetWhere is Other (no default possible)
+    if (state.targetWhere === "Other" && !state.specificTool) missing.push("Specific tool/IDE (required for Other target environment)");
+    return missing;
+  }
+
+  function escapeBlock(s) {
+    // avoid accidental fence injection
+    return (s || "").replace(/```/g, "``\\`");
+  }
+
+  function metaMasterPrompt(state) {
+    // Deterministic prompt. No branching on model-specific features.
+    // Goal: produce a master prompt that begins with explicit instruction on where to paste it.
+    const inferredDefaultTool = computeDefaultTool(state.targetWhere) || "";
+    const structure = state.structure.join(", ");
+    const toolLine = state.specificTool
+      ? `Specific tool/IDE: ${state.specificTool}${inferredDefaultTool && state.specificTool === inferredDefaultTool ? " (default)" : ""}`
+      : `Specific tool/IDE: Not specified`;
+    const platformLine = state.platform ? `Platform/OS: ${state.platform}` : `Platform/OS: Not specified`;
+    const stackLine = state.stack ? `Preferred stack: ${state.stack}` : `Preferred stack: Not specified`;
+    const hostingLine = state.hosting ? `Hosting preference: ${state.hosting}` : `Hosting preference: Not specified`;
+    const examples = state.examples ? `\n\nEXAMPLES / REFERENCES:\n${escapeBlock(state.examples)}` : "";
+    const hard = state.hardConstraints.length ? state.hardConstraints.join(", ") : "None specified";
+    const otherConstraintChecked = document.getElementById("c_other")?.checked;
+    const hardWithOther = otherConstraintChecked && state.constraintOther
+      ? `${hard}; Other: ${escapeBlock(state.constraintOther)}`
+      : hard;
+
+    // Output contract inside the meta prompt:
+    // 1) Tell user where to paste master prompt
+    // 2) Then output the master prompt in a single fenced block
+    // 3) Make it self-contained and environment-tailored
+    return `
+You are a prompt compiler. Your job is to generate ONE high-quality "MASTER PROMPT" that the user will copy-paste into the correct target environment.
+
+NON-NEGOTIABLE OUTPUT FORMAT:
+1) First output a short header titled: "Where to paste this master prompt"
+   - State exactly where the user should paste it (based on the target environment below).
+   - Include any one-line usage instruction necessary (e.g., "Paste into Cursor as the first message in a new chat").
+2) Then output: "MASTER PROMPT" and provide exactly ONE master prompt inside a single triple-backtick block.
+3) The master prompt must be self-contained and must not refer back to this meta prompt.
+
+COMPILATION INPUT (PromptSpec):
+- Primary objective: ${escapeBlock(state.objective)}
+- Output type: ${escapeBlock(state.outputType === "Other" ? state.outputTypeOther : state.outputType)}
+- Intended use: ${escapeBlock(state.useMode)}
+- Target environment: ${escapeBlock(state.targetWhere === "Other" ? state.targetWhereOther : state.targetWhere)}
+- ${toolLine}
+- ${platformLine}
+- User skill level: ${escapeBlock(state.skillLevel)}
+- Assume the user already knows: ${escapeBlock(state.assumeKnown)}
+
+CONSTRAINTS:
+- Hard constraints: ${escapeBlock(hardWithOther)}
+- Constraint details: ${escapeBlock(state.constraintDetails || "Not specified")}
+- Non-negotiables: ${escapeBlock(state.nonNegotiables)}
+
+OUTPUT BEHAVIOR:
+- Verbosity: ${escapeBlock(state.verbosity)}
+- Desired structure: ${escapeBlock(structure)}
+- How to proceed: ${escapeBlock(state.proceed)}
+- Error tolerance: ${escapeBlock(state.risk)}
+
+PREFERENCES (optional):
+- ${stackLine}
+- ${hostingLine}${examples}
+
+MASTER PROMPT QUALITY REQUIREMENTS:
+- Must be tailored to the chosen target environment, including the right interaction pattern (chat vs coding agent vs no-code vs automation).
+- Must include explicit constraints and non-negotiables as enforceable rules.
+- Must include a clear step order and explicit deliverables.
+- Must instruct the downstream assistant/tool to ask clarifying questions OR proceed by assumptions exactly as selected.
+- Must begin with a brief "Operating Rules" section inside the master prompt (few bullets) to reduce hallucinations.
+- Must include a "Stop conditions" rule: if critical info is missing AND the chosen proceed mode requires questions, it must ask; otherwise it must proceed with stated assumptions.
+
+Now generate the output in the required format.
+`.trim();
+  }
+
+  function setStatus(msg, kind="hint") {
+    const el = $("formStatus");
+    el.className = kind === "error" ? "error" : (kind === "ok" ? "ok" : "hint");
+    el.textContent = msg;
+  }
+
+  function render() {
+    const state = readState();
+    applyDynamicUI(state);
+    const missing = validate(state);
+
+    const out = metaMasterPrompt(state);
+    $("output").textContent = out;
+
+    if (missing.length) {
+      setStatus("Missing mandatory fields: " + missing.join("; "), "error");
+      $("btnCopy").disabled = missing.length > 0;
+    } else {
+      setStatus("All mandatory fields satisfied.", "ok");
+      $("btnCopy").disabled = missing.length > 0;
+    }
+
+    localStorage.setItem("promptspec_state_v1", JSON.stringify(state));
+  }
+
+  function load() {
+    const raw = localStorage.getItem("promptspec_state_v1");
+    if (!raw) return;
+    try {
+      const s = JSON.parse(raw);
+      fields.forEach(f => {
+        if (typeof s[f] === "string" && $(f)) $(f).value = s[f];
+        if (f === "specificTool" && s[f]) {
+          $(f).dataset.userTyped = "1";
+        }
+      });
+      // checkboxes
+      if (Array.isArray(s.hardConstraints)) {
+        document.querySelectorAll(`#constraintChecks input[type="checkbox"]`).forEach(x => x.checked = s.hardConstraints.includes(x.value));
+      }
+      if (Array.isArray(s.structure)) {
+        document.querySelectorAll(`#structureChecks input[type="checkbox"]`).forEach(x => x.checked = s.structure.includes(x.value));
+      }
+      // radios
+      if (typeof s.proceed === "string" && s.proceed) {
+        const r = Array.from(document.querySelectorAll(`input[name="proceed"]`)).find(x => x.value === s.proceed);
+        if (r) r.checked = true;
+      }
+    } catch {}
+  }
+
+  // wire up events
+  fields.forEach(f => {
+    const el = $(f);
+    if (!el) return;
+    el.addEventListener("input", (e) => {
+      if (f === "specificTool") {
+        // mark as user-typed so defaults don't overwrite
+        el.dataset.userTyped = "1";
+      }
+      render();
+    });
+  });
+  document.querySelectorAll(`input[type="checkbox"], input[type="radio"], select`).forEach(el => {
+    el.addEventListener("change", (e) => {
+      if (e.target && e.target.id === "targetWhere") {
+        const specificToolEl = $("specificTool");
+        if (specificToolEl) {
+          // allow default to re-apply when target environment changes
+          specificToolEl.dataset.userTyped = "0";
+        }
+      }
+      render();
+    });
+  });
+
+  $("btnCopy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("output").innerText);
+      $("copyStatus").textContent = "Copied.";
+    } catch {
+      $("copyStatus").textContent = "Copy failed. Select the text manually and copy.";
+    }
+    setTimeout(() => $("copyStatus").textContent = "", 2000);
+  });
+
+  $("btnReset").addEventListener("click", () => {
+    localStorage.removeItem("promptspec_state_v1");
+    location.reload();
+  });
+
+  $("btnExport").addEventListener("click", () => {
+    const state = readState();
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "promptspec.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  $("btnImport").addEventListener("click", async () => {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "application/json";
+    inp.onchange = async () => {
+      const file = inp.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      try {
+        const s = JSON.parse(text);
+        localStorage.setItem("promptspec_state_v1", JSON.stringify(s));
+        location.reload();
+      } catch {
+        alert("Invalid JSON.");
+      }
+    };
+    inp.click();
+  });
+
+  load();
+  const st = readState();
+  applyDynamicUI(st);
+  render();
+</script>
+</body>
+</html>
